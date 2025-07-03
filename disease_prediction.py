@@ -3,12 +3,16 @@ import matplotlib.pyplot as plt
 from wordcloud import WordCloud
 import pickle, cloudpickle
 import streamlit as st
-import re, nltk
+import re
+import nltk
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 from textblob import TextBlob
 
+# Download NLTK resources
 nltk.download('stopwords')
+nltk.download('wordnet')
+
 # Define the cleaning function exactly as before
 stop_words = set(stopwords.words('english'))
 lemma = WordNetLemmatizer()
