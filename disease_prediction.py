@@ -1,3 +1,4 @@
+# Imports
 import pandas as pd
 import matplotlib.pyplot as plt
 from wordcloud import WordCloud
@@ -9,11 +10,11 @@ from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 from textblob import TextBlob
 
-# Download NLTK resources
+# NLTK Downloads (only needed once)
 nltk.download('stopwords')
 nltk.download('wordnet')
 
-# Define the cleaning function exactly as before
+# Text Cleaning Function
 stop_words = set(stopwords.words('english'))
 lemma = WordNetLemmatizer()
 
@@ -24,92 +25,85 @@ def clean_text(text):
     words = [lemma.lemmatize(w) for w in words if w not in stop_words]
     return ' '.join(words)
 
-tab0, tab1 = st.tabs(["WordCloud","Predict Disease"])
-
+# Load WordCloud Dataset
 text_df = pd.read_csv("wordcloud.csv")
-tfidf_path = 'tfidf_vector.pkl'
-with open(tfidf_path, 'rb') as file:
+
+# Load TF-IDF Vectorizer
+with open('tfidf_vector.pkl', 'rb') as file:
     tfidf_vect = pickle.load(file)
 
-model_path = 'disease_model.pkl'
-with open(model_path, 'rb') as file1:
-    model = cloudpickle.load(file1) # for custom function in pipeline
+# Load Trained Model (Pipeline using cloudpickle for custom cleaning)
+with open('disease_model.pkl', 'rb') as file1:
+    model = cloudpickle.load(file1)
 
+# Label Dictionary
 label_dict = {
-  0: 'Depression',
-  1: 'Diabetes, Type 2',
-  2: 'High Blood Pressure'
+    0: 'Depression',
+    1: 'Diabetes, Type 2',
+    2: 'High Blood Pressure'
 }
+
+# Streamlit Tabs
+tab0, tab1 = st.tabs(["WordCloud", "Predict Disease"])
+
+# Tab 0 - WordCloud for Dataset
 with tab0:
     st.title('WordCloud')
     if st.button("Generate Word Cloud"):
         text = " ".join(text_df['full_text'].astype(str))
-        # Generate word cloud
         wordcloud = WordCloud(width=1000, height=600, background_color='black', colormap='Pastel1').generate(text)
-        # Create matplotlib figure
         fig, ax = plt.subplots(figsize=(10, 5))
         ax.imshow(wordcloud)
         ax.axis('off')
-        # Display in Streamlit
         st.pyplot(fig)
 
+# Tab 1 - Disease Prediction & Sentiment
 with tab1:
-    st.title('🧠 Disease Prediction With Review')
+    st.title('Disease Prediction With Review')
     st.markdown("""
-            > ⚠️ **Note:** This model is trained only on three conditions: **Depression**, **Type 2 Diabetes**, 
-            and **High Blood Pressure**.
-            >
-            > If your review describes a different condition or treatment (e.g., birth control, acne, 
-            or general wellness), the model may still predict one of the known conditions if similar terms 
-            are present.
-            >
-            > This is a limitation of the model, and unrelated reviews may be misclassified.
-            """)
+        >**Note:** This model is trained only on three conditions: **Depression**, **Type 2 Diabetes**, 
+        and **High Blood Pressure**. Misclassification is possible if input is unrelated.
+    """)
 
-    user_input = st.text_area(
-        "Enter your detailed review:",
-        height=100
-    )
+    user_input = st.text_area("Enter your detailed review:", height=100)
 
+    # Disease Prediction
     if st.button("Predict"):
         if not user_input.strip():
             st.error("Please enter a valid review.")
         else:
-            user_vec = tfidf_vect.transform([user_input]) 
+            user_vec = tfidf_vect.transform([user_input])
             if user_vec.nnz == 0:
                 st.error("Invalid Input")
             else:
                 scores = model.decision_function([user_input])
                 max_score = max(scores[0])
-                threshold = 0.5  # 🔧 adjust based on testing
-            
+                threshold = 0.5  #Tune this threshold if needed
+
                 if max_score < threshold:
                     st.warning("The model is not confident. This review may not match any known condition.")
                 else:
                     label = model.predict([user_input])[0]
                     st.success(f"**Predicted Condition:** {label_dict[label]}")
-
-
     else:
         st.info("Please enter a review to predict the condition.")
-        
+
+    # Sentiment Analysis
     if st.button("Analyze Sentiment"):
         blob = TextBlob(user_input)
-        # Get sentiment polarity
         polarity = blob.sentiment.polarity
-        # Interpretation
         if polarity > 0:
-            sentiment = "Positive 😊"
+            sentiment = "Positive "
         elif polarity < 0:
-            sentiment = "Negative 😞"
+            sentiment = "Negative "
         else:
-            sentiment = "Neutral 😐"
-
+            sentiment = "Neutral "
         st.write(f"**Sentiment:** {sentiment}")
-        
+
+    # User WordCloud
     if st.button('Generate WordCloud'):
         cleaned = clean_text(user_input)
-        if cleaned.strip():  # Check that text is not empty after cleaning
+        if cleaned.strip():
             st.markdown('**WordCloud for User Input**')
             wordcloud_user = WordCloud(width=800, height=400, background_color='black',
                                        colormap='Pastel1').generate(cleaned)
